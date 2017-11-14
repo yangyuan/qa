@@ -122,8 +122,6 @@ def pointer_net(passage, passage_len, question, question_len, cell, params, scop
         shapes = passage.get_shape().as_list()
         initial_state = question_pooling(question, units = Params.attn_size, weights = weights_q, memory_len = question_len, scope = "question_pooling")
         inputs = [passage, initial_state]
-        print('passage')
-        print(shapes)
         p1_logits = attention(inputs, Params.attn_size, weights_p, memory_len = passage_len, scope = "attention", _shape=shapes)
         scores = tf.expand_dims(p1_logits, -1)
         attention_pool = tf.reduce_sum(scores * passage,1)
@@ -153,8 +151,6 @@ def question_pooling(memory, units, weights, memory_len = None, scope = "questio
         shapes = memory.get_shape().as_list()
         V_r = tf.get_variable("question_param", shape = (Params.max_q_len, units), initializer = tf.contrib.layers.xavier_initializer(), dtype = tf.float32)
         inputs_ = [memory, V_r]
-        print('memory1')
-        print(shapes)
         attn = attention(inputs_, units, weights, memory_len = memory_len, scope = "question_attention_pooling",
                          _shape=shapes, _idk=True)
         attn = tf.expand_dims(attn, -1)
@@ -168,8 +164,6 @@ def gated_attention(memory, inputs, states, units, params, self_matching = False
         if not self_matching:
             inputs_.append(states)
         shapes = memory.get_shape().as_list()
-        print('memory2')
-        print(shapes)
         scores = attention(inputs_, units, weights, memory_len = memory_len, _shape=shapes)
         scores = tf.expand_dims(scores,-1)
         attention_pool = tf.reduce_sum(scores * memory, 1)

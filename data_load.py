@@ -1,5 +1,6 @@
 from functools import wraps
 import threading
+import math
 
 from tensorflow.python.platform import tf_logging as logging
 
@@ -184,6 +185,36 @@ def get_dev():
     dev_ind = np.arange(indices.shape[0],dtype = np.int32)
     np.random.shuffle(dev_ind)
     return devset, dev_ind
+
+
+def extract_by_indices(_data, _indices):
+    batch = []
+    for x in range(9):
+        batch.append(_data[x][_indices])
+    return batch
+
+def batches(step):
+    devset, shapes = load_data(Params.train_dir)
+
+    lens = []
+    size = None
+    for x in range(9):
+        size = devset[x].shape[0]
+        lens.append(devset[x].shape[0])
+    assert [size] * 9 == lens
+
+    indices = np.asarray(range(size))
+    np.random.shuffle(indices)
+
+    k = math.ceil(size/step)
+
+    for i in range(0, k):
+        batch_indices = list(range(i*step, min((i+1)*step, size)))
+        batch_indices = indices[batch_indices]
+        if len(batch_indices) < step:
+            break
+
+        yield extract_by_indices(devset, batch_indices)
 
 def get_batch(is_training = True):
     """Loads training data and put them in queues"""

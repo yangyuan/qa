@@ -16,25 +16,49 @@ optimizer_factory = {"adadelta":tf.train.AdadeltaOptimizer,
 
 
 class Model(object):
-    def __init__(self,is_training = True):
+    def __init__(self, is_training=True):
         # Build the computational graph when initializing
         self.is_training = is_training
         self.graph = tf.Graph()
         with self.graph.as_default():
             self.global_step = tf.Variable(0, name='global_step', trainable=False)
-            self.data, self.num_batch = get_batch(is_training = is_training)
-            (self.passage_w,
-            self.question_w,
-            self.passage_c,
-            self.question_c,
-            self.passage_w_len_,
-            self.question_w_len_,
-            self.passage_c_len,
-            self.question_c_len,
-            self.indices) = self.data
+            # self.data, self.num_batch = get_batch(is_training=is_training)
+
+            self.batch_size = tf.placeholder(dtype=tf.int32)
+            self.answer_placeholder =\
+                tf.placeholder(tf.int32, [Params.batch_size, 2], "answer_placeholder")
+            self.words_p_placeholder =\
+                tf.placeholder(tf.int32, [Params.batch_size, Params.max_p_len], "words_p_placeholder")
+            self.words_q_placeholder =\
+                tf.placeholder(tf.int32, [Params.batch_size, Params.max_q_len], "words_q_placeholder")
+            self.chars_p_placeholder =\
+                tf.placeholder(tf.int32, [Params.batch_size, Params.max_p_len, Params.max_char_len], "chars_p_placeholder")
+            self.chars_q_placeholder =\
+                tf.placeholder(tf.int32, [Params.batch_size, Params.max_q_len, Params.max_char_len], "chars_q_placeholder")
+            self.len_words_p_placeholder =\
+                tf.placeholder(tf.int32, [Params.batch_size, 1], "len_words_p_placeholder")
+            self.len_words_q_placeholder =\
+                tf.placeholder(tf.int32, [Params.batch_size, 1], "len_words_q_placeholder")
+            self.len_chars_p_placeholder =\
+                tf.placeholder(tf.int32, [Params.batch_size, Params.max_p_len], "len_chars_p_placeholder")
+            self.len_chars_q_placeholder =\
+                tf.placeholder(tf.int32, [Params.batch_size, Params.max_q_len], "len_chars_q_placeholder")
+
+            self.passage_w = self.words_p_placeholder
+            self.question_w = self.words_q_placeholder
+            self.passage_c = self.chars_p_placeholder
+            self.question_c = self.chars_q_placeholder
+            self.passage_w_len_ = self.len_words_p_placeholder
+            self.question_w_len_ = self.len_words_q_placeholder
+            self.passage_c_len = self.len_chars_p_placeholder
+            self.question_c_len = self.len_chars_q_placeholder
+            self.indices = self.answer_placeholder
 
             self.passage_w_len = tf.squeeze(self.passage_w_len_)
             self.question_w_len = tf.squeeze(self.question_w_len_)
+
+            self.word_embeddings_placeholder = tf.placeholder(tf.float32,[Params.vocab_size, Params.emb_size],"word_embeddings_placeholder")
+            self.word_embeddings = self.word_embeddings_placeholder
 
             self.encode_ids()
 
@@ -54,9 +78,7 @@ class Model(object):
     def encode_ids(self):
         with tf.device('/cpu:0'):
             self.char_embeddings = tf.Variable(tf.constant(0.0, shape=[Params.char_vocab_size, Params.char_emb_size]),trainable=True, name="char_embeddings")
-            self.word_embeddings = tf.Variable(tf.constant(0.0, shape=[Params.vocab_size, Params.emb_size]),trainable=False, name="word_embeddings")
-            self.word_embeddings_placeholder = tf.placeholder(tf.float32,[Params.vocab_size, Params.emb_size],"word_embeddings_placeholder")
-            self.emb_assign = tf.assign(self.word_embeddings, self.word_embeddings_placeholder)
+
 
         # Embed the question and passage information for word and character tokens
         self.passage_word_encoded, self.passage_char_encoded = encoding(self.passage_w,
@@ -101,7 +123,6 @@ class Model(object):
                                 scope = "question_encoding",
                                 output = 0,
                                 is_training = self.is_training)
-
     def attention_match_rnn(self):
         # Apply gated attention recurrent network for both query-passage matching and self matching networks
         with tf.variable_scope("attention_match_rnn"):
@@ -180,38 +201,19 @@ class Model(object):
         tf.summary.scalar("Exact_Match",self.EM)
         tf.summary.scalar('learning_rate', Params.opt_arg[Params.optimizer]['learning_rate'])
         self.merged = tf.summary.merge_all()
-'''
-def debug():
-    model = Model(is_training = True)
-    print("Built model")
 
-def test():
-    model = Model(is_training = False); print("Built model")
-    dict_ = pickle.load(open(Params.data_dir + "dictionary.pkl","r"))
-    with model.graph.as_default():
-        sv = tf.train.Supervisor()
-        with sv.managed_session() as sess:
-            sv.saver.restore(sess, tf.train.latest_checkpoint(Params.logdir))
-            EM, F1 = 0.0, 0.0
-            for step in tqdm(range(model.num_batch), total = model.num_batch, ncols=70, leave=False, unit='b'):
-                index, ground_truth, passage = sess.run([model.output_index, model.indices, model.passage_w])
-                for batch in range(Params.batch_size):
-                    f1, em = f1_and_EM(index[batch], ground_truth[batch], passage[batch], dict_)
-                    F1 += f1
-                    EM += em
-            F1 /= float(model.num_batch * Params.batch_size)
-            EM /= float(model.num_batch * Params.batch_size)
-            print("Exact_match: {}\nF1_score: {}".format(EM,F1))
-'''
 
 def main():
-    model = Model(is_training = True); print("Built model")
+    model = Model(is_training=True)
+    print("Built model")
 
     dict_ = Embeddings()
     dict_.load('data/embeddings')
 
+    # TODO: only enable when developing
+    import shutil
+    shutil.rmtree(Params.logdir, ignore_errors=True)
 
-    init = True
     devdata, dev_ind = get_dev()
 
     with model.graph.as_default():
@@ -222,29 +224,52 @@ def main():
                         global_step = model.global_step,
                         init_op = model.init_op)
         with sv.managed_session(config = config) as sess:
-            if init:
-                sess.run(model.emb_assign, {model.word_embeddings_placeholder:dict_.word_embedding})
             for epoch in range(1, Params.num_epochs+1):
-                if sv.should_stop(): break
-                for step in tqdm(range(model.num_batch), total = model.num_batch, ncols=70, leave=False, unit='b'):
-                    sess.run(model.train_op)
-                    if step % Params.save_steps == 0:
-                        gs = sess.run(model.global_step)
-                        sv.saver.save(sess, Params.logdir + '/model_epoch_%d_step_%d'%(gs//model.num_batch, gs%model.num_batch))
+                for x in batches(Params.batch_size):
+                    train_dict = {model.batch_size: Params.batch_size,
+                                  model.words_p_placeholder: x[0],
+                                  model.words_q_placeholder: x[1],
+                                  model.chars_p_placeholder: x[2],
+                                  model.chars_q_placeholder: x[3],
+                                  model.len_words_p_placeholder: x[4],
+                                  model.len_words_q_placeholder: x[5],
+                                  model.len_chars_p_placeholder: x[6],
+                                  model.len_chars_q_placeholder: x[7],
+                                  model.answer_placeholder: x[8],
+                                  model.word_embeddings_placeholder: dict_.word_embedding}
 
-                        sample = np.random.choice(dev_ind, Params.batch_size)
-                        feed_dict = {data: devdata[i][sample] for i,data in enumerate(model.data)}
-                        logits, dev_loss = sess.run([model.points_logits, model.mean_loss], feed_dict = feed_dict)
-                        index = np.argmax(logits, axis = 2)
-                        F1, EM = 0.0, 0.0
-                        for batch in range(Params.batch_size):
-                            f1, em = f1_and_EM(index[batch], devdata[8][sample][batch], devdata[0][sample][batch], dict_)
-                            F1 += f1
-                            EM += em
-                        F1 /= float(Params.batch_size)
-                        EM /= float(Params.batch_size)
-                        sess.run(model.metric_assign,{model.F1_placeholder: F1, model.EM_placeholder: EM, model.dev_loss_placeholder: dev_loss})
-                        print("\nDev_loss: {}\nDev_Exact_match: {}\nDev_F1_score: {}".format(dev_loss,EM,F1))
+                    sess.run(model.train_op, feed_dict=train_dict)
+                gs = sess.run(model.global_step)
+
+                sv.saver.save(sess, Params.logdir + '/model_epoch_%d' % gs)
+
+                _sample = np.random.choice(dev_ind, Params.batch_size)
+                samples = extract_by_indices(devdata, _sample)
+
+                feed_dict = {model.batch_size: Params.batch_size,
+                             model.words_p_placeholder: samples[0],
+                             model.words_q_placeholder: samples[1],
+                             model.chars_p_placeholder: samples[2],
+                             model.chars_q_placeholder: samples[3],
+                             model.len_words_p_placeholder: samples[4],
+                             model.len_words_q_placeholder: samples[5],
+                             model.len_chars_p_placeholder: samples[6],
+                             model.len_chars_q_placeholder: samples[7],
+                             model.answer_placeholder: samples[8],
+                             model.word_embeddings_placeholder: dict_.word_embedding}
+
+                logits, dev_loss = sess.run([model.points_logits, model.mean_loss], feed_dict=feed_dict)
+
+                answer_predict = np.argmax(logits, axis = 2)
+                F1, EM = 0.0, 0.0
+                for _index in range(Params.batch_size):
+                    f1, em = f1_and_EM(answer_predict[_index], samples[8][_index], samples[0][_index], dict_)
+                    F1 += f1
+                    EM += em
+                F1 /= float(Params.batch_size)
+                EM /= float(Params.batch_size)
+                sess.run(model.metric_assign, {model.F1_placeholder: F1, model.EM_placeholder: EM, model.dev_loss_placeholder: dev_loss})
+                print("\nDev_loss: {}\nDev_Exact_match: {}\nDev_F1_score: {}".format(dev_loss, EM, F1))
 
 '''
 if __name__ == '__main__':
