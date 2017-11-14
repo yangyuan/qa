@@ -142,7 +142,6 @@ def load_data(dir_):
     q_max_char = Params.max_char_len#,max_value(q_char_len))
 
     # pad_data
-    print("Preparing data...")
     p_word_ids = pad_data(p_word_ids,p_max_word)
     q_word_ids = pad_data(q_word_ids,q_max_word)
     p_char_ids = pad_char_data(p_char_ids,p_max_char,p_max_word)
@@ -192,6 +191,7 @@ def extract_by_indices(_data, _indices):
     for x in range(9):
         batch.append(_data[x][_indices])
     return batch
+
 
 def batches(step):
     devset, shapes = load_data(Params.train_dir)

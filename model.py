@@ -207,7 +207,7 @@ def main():
     model = Model(is_training=True)
     print("Built model")
 
-    dict_ = Embeddings()
+    dict_ = Embedding()
     dict_.load('data/embeddings')
 
     # TODO: only enable when developing

@@ -4,7 +4,7 @@ from model import *
 def test():
     model = Model(is_training = False)
     print("Built model")
-    dict_ = Embeddings()
+    dict_ = Embedding()
     dict_.load('data/embeddings')
     with model.graph.as_default():
         sv = tf.train.Supervisor()
