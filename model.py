@@ -203,6 +203,32 @@ class Model(object):
         self.merged = tf.summary.merge_all()
 
 
+def xxx(sess, model, samples, dict_):
+    feed_dict = {model.batch_size: Params.batch_size,
+                 model.words_p_placeholder: samples[0],
+                 model.words_q_placeholder: samples[1],
+                 model.chars_p_placeholder: samples[2],
+                 model.chars_q_placeholder: samples[3],
+                 model.len_words_p_placeholder: samples[4],
+                 model.len_words_q_placeholder: samples[5],
+                 model.len_chars_p_placeholder: samples[6],
+                 model.len_chars_q_placeholder: samples[7],
+                 model.answer_placeholder: samples[8],
+                 model.word_embeddings_placeholder: dict_.word_embedding}
+
+    logits, dev_loss = sess.run([model.points_logits, model.mean_loss], feed_dict=feed_dict)
+    answer_predict = np.argmax(logits, axis=2)
+    F1, EM = 0.0, 0.0
+    for _index in range(Params.batch_size):
+        f1, em = f1_and_EM(answer_predict[_index], samples[8][_index], samples[0][_index], dict_)
+        F1 += f1
+        EM += em
+    F1 /= float(Params.batch_size)
+    EM /= float(Params.batch_size)
+    sess.run(model.metric_assign,
+             {model.F1_placeholder: F1, model.EM_placeholder: EM, model.dev_loss_placeholder: dev_loss})
+    print("\nDev_loss: {}\nDev_Exact_match: {}\nDev_F1_score: {}".format(dev_loss, EM, F1))
+
 def main():
     model = Model(is_training=True)
     print("Built model")
@@ -225,7 +251,10 @@ def main():
                         init_op = model.init_op)
         with sv.managed_session(config = config) as sess:
             for epoch in range(1, Params.num_epochs+1):
-                for x in batches(Params.batch_size):
+                batch_index = 0
+                for x, total_batchs in batches(Params.batch_size):
+                    batch_index += 1
+                    print("batch %d/%d" % (batch_index, total_batchs))
                     train_dict = {model.batch_size: Params.batch_size,
                                   model.words_p_placeholder: x[0],
                                   model.words_q_placeholder: x[1],
@@ -239,36 +268,16 @@ def main():
                                   model.word_embeddings_placeholder: dict_.word_embedding}
 
                     sess.run(model.train_op, feed_dict=train_dict)
+                    xxx(sess, model, x, dict_)
                 gs = sess.run(model.global_step)
 
                 sv.saver.save(sess, Params.logdir + '/model_epoch_%d' % gs)
 
                 _sample = np.random.choice(dev_ind, Params.batch_size)
                 samples = extract_by_indices(devdata, _sample)
+                xxx(sess, model, samples, dict_)
 
-                feed_dict = {model.batch_size: Params.batch_size,
-                             model.words_p_placeholder: samples[0],
-                             model.words_q_placeholder: samples[1],
-                             model.chars_p_placeholder: samples[2],
-                             model.chars_q_placeholder: samples[3],
-                             model.len_words_p_placeholder: samples[4],
-                             model.len_words_q_placeholder: samples[5],
-                             model.len_chars_p_placeholder: samples[6],
-                             model.len_chars_q_placeholder: samples[7],
-                             model.answer_placeholder: samples[8],
-                             model.word_embeddings_placeholder: dict_.word_embedding}
 
-                logits, dev_loss = sess.run([model.points_logits, model.mean_loss], feed_dict=feed_dict)
-                answer_predict = np.argmax(logits, axis=2)
-                F1, EM = 0.0, 0.0
-                for _index in range(Params.batch_size):
-                    f1, em = f1_and_EM(answer_predict[_index], samples[8][_index], samples[0][_index], dict_)
-                    F1 += f1
-                    EM += em
-                F1 /= float(Params.batch_size)
-                EM /= float(Params.batch_size)
-                sess.run(model.metric_assign, {model.F1_placeholder: F1, model.EM_placeholder: EM, model.dev_loss_placeholder: dev_loss})
-                print("\nDev_loss: {}\nDev_Exact_match: {}\nDev_F1_score: {}".format(dev_loss, EM, F1))
 
 '''
 if __name__ == '__main__':

@@ -214,7 +214,7 @@ def batches(step):
         if len(batch_indices) < step:
             break
 
-        yield extract_by_indices(devset, batch_indices)
+        yield extract_by_indices(devset, batch_indices), k
 
 def get_batch(is_training = True):
     """Loads training data and put them in queues"""
