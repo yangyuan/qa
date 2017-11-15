@@ -113,7 +113,7 @@ class _FuncQueueRunner(tf.train.QueueRunner):
 def load_data(dir_):
 
     data = DataSet()
-    data.load('data/train')
+    data.load('data/babi-en-train')
 
     q_word_ids = []
     q_char_ids = []
