@@ -17,12 +17,6 @@ class Embedding:
 
         pass
 
-    def ind2word(self, ids):
-        output = []
-        for i in ids:
-            output.append(str(self.word_index[i]))
-        return " ".join(output)
-
     def save(self, folder):
         with open(os.path.join(folder, "embeddings.pkl"), 'wb') as handle:
             obj = {'dimension': self.dimension,

@@ -56,15 +56,12 @@ class SquadDataSet(DataSet):
     def _find_answer_index(context, answer, offset):
         window_len = len(answer)
         if context[offset:offset + window_len] == answer:
-            if window_len == 1:
-                return [offset, offset]
-            return [offset, offset + window_len]
-        raise Exception()
+            return [offset, offset + window_len - 1]
+        return None
 
     def extract(self, paragraph):
 
         pairs = []
-
         words_p, chars_p = self._encode(paragraph['context'])
 
         for qas in paragraph['qas']:
@@ -79,14 +76,14 @@ class SquadDataSet(DataSet):
             if len(words_p) >= 300:
                 print("Ignored long p")
                 continue
-            try:
-                range_a = self._find_answer_index(words_p, words_a, len(words_p_prefix))
-                pairs.append([words_p, chars_p, words_q, chars_q, range_a])
-            except:
+
+            range_a = self._find_answer_index(words_p, words_a, len(words_p_prefix))
+            if range_a is None:
                 print("Ignored one answer not found in question")
                 print(question)
-                print(paragraph['context'][answer['answer_start']:])
-                print(paragraph['context'][answer['answer_start'] - 5:answer['answer_start'] + 15])
                 print(answer['text'])
+                print(paragraph['context'][answer['answer_start'] - 5:answer['answer_start'] + 5 + len(answer['text'])])
+                continue
+            pairs.append([words_p, chars_p, words_q, chars_q, range_a])
 
         return pairs

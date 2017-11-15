@@ -9,21 +9,17 @@ import sys
 
 
 def f1_and_EM(index, ground_truth, passage, dict_):
-    if index[0] == index[1]:
-        pred_ind = [passage[index[0]].tolist()]
-    else:
-        pred_ind = passage[index[0]:index[1]].tolist()
-        if pred_ind is None:
-            pred_ind = [0]
-    if ground_truth[0] == ground_truth[1]:
-        answer_ind = [passage[ground_truth[0]].tolist()]
-    else:
-        answer_ind = passage[ground_truth[0]:ground_truth[1]].tolist()
-    answer = dict_.ind2word(pred_ind)
-    answer_ = dict_.ind2word(answer_ind)
-    print('"%s" vs "%s"' % (answer_, answer))
-    f1 = f1_score(answer,answer_)
-    EM = exact_match_score(answer,answer_)
+    def _extract_answer(_answer, _passage, _word_index):
+        _answer_words = []
+        for i in range(_answer[0], _answer[1] + 1):
+            _answer_words.append(_word_index[_passage[i]])
+        return " ".join(_answer_words)
+
+    answer_predict = _extract_answer(index, passage, dict_.word_index)
+    answer_ground_truth = _extract_answer(ground_truth, passage, dict_.word_index)
+    print('"%s" vs "%s"' % (answer_ground_truth, answer_predict))
+    f1 = f1_score(answer_predict, answer_ground_truth)
+    EM = exact_match_score(answer_predict, answer_ground_truth)
     return f1, EM
 
 def normalize_answer(s):

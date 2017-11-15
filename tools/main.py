@@ -28,14 +28,19 @@ def step_4():
     data = DataSet()
     data.load('data/train')
 
+    def _extract_answer(_answer, _passage, _word_index):
+        _answer_words = []
+        for i in range(_answer[0], _answer[1] + 1):
+            _answer_words.append(_word_index[_passage[i]])
+        return " ".join(_answer_words)
+
     def debug(inx):
         print(data.data[inx][0])
         print(data.data[inx][4])
         ground_truth = data.data[inx][4]
 
-        ans = data.data[inx][0][ground_truth[0]:ground_truth[1]]
-        print(embeddings.ind2word(data.data[inx][0]))
-        print(embeddings.ind2word(ans))
+        ans = _extract_answer(ground_truth, data.data[inx][0], embeddings.word_index)
+        print(ans)
 
         print(embeddings.word_embedding.shape)
 
@@ -52,12 +57,10 @@ def step_4():
         if x > 20:
             break
 
-    print(embeddings.word_embedding.shape)
-    print(embeddings.char_embedding.shape)
-    print(embeddings.char_embedding)
     debug(0)
-    print(len(data.data))
-    print(embeddings.word_embedding)
+    debug(1)
+    debug(2)
+    debug(3)
 
 
 if __name__ == '__main__':

@@ -259,8 +259,7 @@ def main():
                              model.word_embeddings_placeholder: dict_.word_embedding}
 
                 logits, dev_loss = sess.run([model.points_logits, model.mean_loss], feed_dict=feed_dict)
-
-                answer_predict = np.argmax(logits, axis = 2)
+                answer_predict = np.argmax(logits, axis=2)
                 F1, EM = 0.0, 0.0
                 for _index in range(Params.batch_size):
                     f1, em = f1_and_EM(answer_predict[_index], samples[8][_index], samples[0][_index], dict_)
