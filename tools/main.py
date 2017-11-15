@@ -1,3 +1,6 @@
+import os.path, sys
+sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir))
+
 from utils.embeddings import Embedding, GloveEmbedding
 from utils.datasets import DataSet, SquadDataSet, BabiDataSet
 
