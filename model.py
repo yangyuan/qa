@@ -14,9 +14,9 @@ optimizer_factory = {"adadelta":tf.train.AdadeltaOptimizer,
             "adagrad":tf.train.AdagradOptimizer}
 
 
-
 class Model(object):
-    def __init__(self, is_training=True):
+    def __init__(self, size, is_training=True):
+        self.batch_size = size
         # Build the computational graph when initializing
         self.is_training = is_training
         self.graph = tf.Graph()
@@ -24,25 +24,24 @@ class Model(object):
             self.global_step = tf.Variable(0, name='global_step', trainable=False)
             # self.data, self.num_batch = get_batch(is_training=is_training)
 
-            self.batch_size = tf.placeholder(dtype=tf.int32)
             self.answer_placeholder =\
-                tf.placeholder(tf.int32, [Params.batch_size, 2], "answer_placeholder")
+                tf.placeholder(tf.int32, [self.batch_size, 2], "answer_placeholder")
             self.words_p_placeholder =\
-                tf.placeholder(tf.int32, [Params.batch_size, Params.max_p_len], "words_p_placeholder")
+                tf.placeholder(tf.int32, [self.batch_size, Params.max_p_len], "words_p_placeholder")
             self.words_q_placeholder =\
-                tf.placeholder(tf.int32, [Params.batch_size, Params.max_q_len], "words_q_placeholder")
+                tf.placeholder(tf.int32, [self.batch_size, Params.max_q_len], "words_q_placeholder")
             self.chars_p_placeholder =\
-                tf.placeholder(tf.int32, [Params.batch_size, Params.max_p_len, Params.max_char_len], "chars_p_placeholder")
+                tf.placeholder(tf.int32, [self.batch_size, Params.max_p_len, Params.max_char_len], "chars_p_placeholder")
             self.chars_q_placeholder =\
-                tf.placeholder(tf.int32, [Params.batch_size, Params.max_q_len, Params.max_char_len], "chars_q_placeholder")
+                tf.placeholder(tf.int32, [self.batch_size, Params.max_q_len, Params.max_char_len], "chars_q_placeholder")
             self.len_words_p_placeholder =\
-                tf.placeholder(tf.int32, [Params.batch_size, 1], "len_words_p_placeholder")
+                tf.placeholder(tf.int32, [self.batch_size, 1], "len_words_p_placeholder")
             self.len_words_q_placeholder =\
-                tf.placeholder(tf.int32, [Params.batch_size, 1], "len_words_q_placeholder")
+                tf.placeholder(tf.int32, [self.batch_size, 1], "len_words_q_placeholder")
             self.len_chars_p_placeholder =\
-                tf.placeholder(tf.int32, [Params.batch_size, Params.max_p_len], "len_chars_p_placeholder")
+                tf.placeholder(tf.int32, [self.batch_size, Params.max_p_len], "len_chars_p_placeholder")
             self.len_chars_q_placeholder =\
-                tf.placeholder(tf.int32, [Params.batch_size, Params.max_q_len], "len_chars_q_placeholder")
+                tf.placeholder(tf.int32, [self.batch_size, Params.max_q_len], "len_chars_q_placeholder")
 
             self.passage_w = self.words_p_placeholder
             self.question_w = self.words_q_placeholder
@@ -140,6 +139,7 @@ class Model(object):
                 args = {"num_units": Params.attn_size,
                         "memory": memory,
                         "params": params[i],
+                        "batch_size": self.batch_size,
                         "self_matching": False if i == 0 else True,
                         "memory_len": self.question_w_len if i == 0 else self.passage_w_len,
                         "is_training": self.is_training,
@@ -204,8 +204,7 @@ class Model(object):
 
 
 def xxx(sess, model, samples, dict_):
-    feed_dict = {model.batch_size: Params.batch_size,
-                 model.words_p_placeholder: samples[0],
+    feed_dict = {model.words_p_placeholder: samples[0],
                  model.words_q_placeholder: samples[1],
                  model.chars_p_placeholder: samples[2],
                  model.chars_q_placeholder: samples[3],
@@ -230,7 +229,7 @@ def xxx(sess, model, samples, dict_):
     print("\nDev_loss: {}\nDev_Exact_match: {}\nDev_F1_score: {}".format(dev_loss, EM, F1))
 
 def main():
-    model = Model(is_training=True)
+    model = Model(Params.batch_size, is_training=True)
     print("Built model")
 
     dict_ = Embedding()
@@ -255,8 +254,7 @@ def main():
                 for x, total_batchs in batches(Params.batch_size):
                     batch_index += 1
                     print("batch %d/%d" % (batch_index, total_batchs))
-                    train_dict = {model.batch_size: Params.batch_size,
-                                  model.words_p_placeholder: x[0],
+                    train_dict = {model.words_p_placeholder: x[0],
                                   model.words_q_placeholder: x[1],
                                   model.chars_p_placeholder: x[2],
                                   model.chars_q_placeholder: x[3],
@@ -269,9 +267,8 @@ def main():
 
                     sess.run(model.train_op, feed_dict=train_dict)
                     xxx(sess, model, x, dict_)
-                gs = sess.run(model.global_step)
-
-                sv.saver.save(sess, Params.logdir + '/model_epoch_%d' % gs)
+                    gs = sess.run(model.global_step)
+                    sv.saver.save(sess, Params.logdir + '/model_epoch_%d' % gs)
 
                 _sample = np.random.choice(dev_ind, Params.batch_size)
                 samples = extract_by_indices(devdata, _sample)

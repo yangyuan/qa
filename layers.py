@@ -46,6 +46,12 @@ def encoding(word, char, word_embeddings, char_embeddings, scope = "embedding"):
         char_encoding = tf.nn.embedding_lookup(char_embeddings, char)
         return word_encoding, char_encoding
 
+
+def encoding2(word,word_embeddings, scope = "embedding"):
+    with tf.variable_scope(scope):
+        word_encoding = tf.nn.embedding_lookup(word_embeddings, word)
+        return word_encoding
+
 def apply_dropout(inputs, size = None, is_training = True):
     '''
     Implementation of Zoneout from https://arxiv.org/pdf/1606.01305.pdf
@@ -156,11 +162,12 @@ def question_pooling(memory, units, weights, memory_len = None, scope = "questio
         attn = tf.expand_dims(attn, -1)
         return tf.reduce_sum(attn * memory, 1)
 
-def gated_attention(memory, inputs, states, units, params, self_matching = False, memory_len = None, scope="gated_attention"):
+
+def gated_attention(memory, inputs, states, units, batch_size, params, self_matching = False, memory_len = None, scope="gated_attention"):
     with tf.variable_scope(scope):
         weights, W_g = params
         inputs_ = [memory, inputs]
-        # states = tf.reshape(states,(Params.batch_size,Params.attn_size))
+        states = tf.reshape(states,(batch_size,Params.attn_size))
         if not self_matching:
             inputs_.append(states)
         shapes = memory.get_shape().as_list()

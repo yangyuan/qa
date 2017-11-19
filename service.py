@@ -1,26 +1,73 @@
-from model import *
+from model import Model
+from evaluate import f1_and_EM
+from utils.embeddings import Embedding
+from data_load import extract_by_indices, get_dev
+
+import tensorflow as tf
+import numpy as np
+
+from flask import Flask
+
+from params import Params
+import datetime
 
 
-def test():
-    model = Model(is_training = False)
-    print("Built model")
-    dict_ = Embedding()
-    dict_.load('data/embeddings')
-    with model.graph.as_default():
-        sv = tf.train.Supervisor()
-        with sv.managed_session() as sess:
-            sv.saver.restore(sess, tf.train.latest_checkpoint(Params.logdir))
-            EM, F1 = 0.0, 0.0
-            for step in tqdm(range(model.num_batch), total = model.num_batch, ncols=70, leave=False, unit='b'):
-                index, ground_truth, passage = sess.run([model.output_index, model.indices, model.passage_w])
-                for batch in range(Params.batch_size):
-                    f1, em = f1_and_EM(index[batch], ground_truth[batch], passage[batch], dict_)
-                    F1 += f1
-                    EM += em
-            F1 /= float(model.num_batch * Params.batch_size)
-            EM /= float(model.num_batch * Params.batch_size)
-            print("Exact_match: {}\nF1_score: {}".format(EM,F1))
+class WtfApp:
+    def __init__(self):
+        print('loading model')
+        self.model = Model(50, is_training = False)
+        print('loading embedding')
+        dict_ = Embedding()
+        dict_.load('data/embeddings')
+        with self.model.graph.as_default():
+            saver = tf.train.Saver()
+            self.session = tf.Session()
+            self.dict = dict_
+            print('restoring checkpoint')
+            saver.restore(self.session, tf.train.latest_checkpoint(Params.logdir))
+            print("ready")
+
+    def xxx(self, samples):
+        model = self.model
+        dict_ = self.dict
+        feed_dict = {model.words_p_placeholder: samples[0],
+                     model.words_q_placeholder: samples[1],
+                     model.chars_p_placeholder: samples[2],
+                     model.chars_q_placeholder: samples[3],
+                     model.len_words_p_placeholder: samples[4],
+                     model.len_words_q_placeholder: samples[5],
+                     model.len_chars_p_placeholder: samples[6],
+                     model.len_chars_q_placeholder: samples[7],
+                     model.answer_placeholder: samples[8],
+                     model.word_embeddings_placeholder: dict_.word_embedding}
+        print(datetime.datetime.now())
+        answer_predict = self.session.run(model.output_index, feed_dict=feed_dict)
+        print(datetime.datetime.now())
+        F1, EM = 0.0, 0.0
+        for _index in range(Params.batch_size):
+            f1, em = f1_and_EM(answer_predict[_index], samples[8][_index], samples[0][_index], dict_)
+            F1 += f1
+            EM += em
+        F1 /= float(Params.batch_size)
+        EM /= float(Params.batch_size)
+        print("\nDev_Exact_match: {}\nDev_F1_score: {}".format(EM, F1))
+
+
+app = Flask(__name__)
+wtf = WtfApp()
+
+
+@app.route('/')
+def index():
+    print("start")
+    devdata, dev_ind = get_dev()
+    print("random data")
+    _sample = np.random.choice(dev_ind, Params.batch_size)
+    samples = extract_by_indices(devdata, _sample)
+    print("run data")
+    wtf.xxx(samples)
+    return "Hello, World!"
 
 
 if __name__ == '__main__':
-    test()
+    app.run(debug=False)

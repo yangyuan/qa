@@ -112,6 +112,7 @@ class gated_attention_Wrapper(RNNCell):
                num_units,
                memory,
                params,
+               batch_size,
                self_matching = False,
                memory_len = None,
                reuse=None,
@@ -131,6 +132,7 @@ class gated_attention_Wrapper(RNNCell):
     self._self_matching = self_matching
     self._memory_len = memory_len
     self._is_training = is_training
+    self.batch_size = batch_size
 
   @property
   def state_size(self):
@@ -147,6 +149,7 @@ class gated_attention_Wrapper(RNNCell):
                                 inputs,
                                 state,
                                 self._num_units,
+                                self.batch_size,
                                 params = self._params,
                                 self_matching = self._self_matching,
                                 memory_len = self._memory_len)
