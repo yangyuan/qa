@@ -70,7 +70,7 @@ def random_show():
 
 
 if __name__ == '__main__':
-    # process_embedding()
+    process_embedding()
     process_squad()
     process_macro()
     random_show()

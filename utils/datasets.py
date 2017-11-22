@@ -124,8 +124,8 @@ class MacroDataSet(DataSet):
         with open(file, 'r', encoding='utf8') as f:
             for line in f:
                 _count += 1
-                if _count >= 1000:
-                    break
+                if _count % 1000 == 0:
+                    print('%d/%d' % (_count, count))
                 _data = json.loads(line)
                 self.data.extend(self.extract(_data))
 
