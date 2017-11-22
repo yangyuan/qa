@@ -241,7 +241,7 @@ def main():
         os.makedirs('data/model')
 
     dict_ = Embedding()
-    dict_.load('data/embeddings')
+    dict_.load('data/embedding')
 
     # TODO: only enable when developing
     import shutil

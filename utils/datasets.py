@@ -21,7 +21,7 @@ class Tokenizer:
 
     @staticmethod
     def char_tokenize(word):
-        return unicodedata.normalize('NFD', word)
+        return word.encode('latin-1', 'ignore')
 
     @staticmethod
     def encode_text(content, words_id):
@@ -343,5 +343,3 @@ class CombinedDataSet:
         for folder in folders:
             with open(os.path.join(folder, "data.pkl"), 'rb') as handle:
                 self.data.extend(pickle.load(handle))
-                print(len(self.data))
-                print(folder)
