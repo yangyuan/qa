@@ -38,7 +38,7 @@ class Tokenizer:
 
             _chars = []
             for _char in Tokenizer.char_tokenize(_word):
-                _chars.append(ord(_char))
+                _chars.append(int(_char))
 
             chars.append(_chars)
         return words, chars
