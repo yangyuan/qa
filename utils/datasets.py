@@ -4,14 +4,18 @@ import json
 import unicodedata
 import spacy
 import re
+import nltk
+
+
+debug = False
 
 
 class Tokenizer:
     @staticmethod
     def word_tokenize(text):
-        # _words = nltk.word_tokenize(content)
-        nlp = spacy.blank('en')
-        parsed = nlp(text)
+        return nltk.word_tokenize(text)
+        #nlp = spacy.blank('en')
+        #parsed = nlp(text)
         tokens = [i.text for i in parsed if i.text != ' ']
         return tokens
 
@@ -65,6 +69,7 @@ class SquadDataSet(DataSet):
     def load(self, file):
         _data = json.load(open(file))
         _size = len(_data['data'])
+        print(_size)
         _count = 0
         for item in _data['data']:
             _count += 1
@@ -104,9 +109,10 @@ class SquadDataSet(DataSet):
             range_a = self._find_answer_index(words_p, words_a, len(words_p_prefix))
             if range_a is None:
                 print("Ignored one answer not found in question")
-                print(question)
-                print(answer['text'])
-                print(paragraph['context'][answer['answer_start'] - 5:answer['answer_start'] + 5 + len(answer['text'])])
+                if debug:
+                    print(question)
+                    print(answer['text'])
+                    print(paragraph['context'][answer['answer_start'] - 5:answer['answer_start'] + 5 + len(answer['text'])])
                 continue
             pairs.append([words_p, chars_p, words_q, chars_q, range_a])
 
