@@ -279,11 +279,11 @@ def main():
                     sess.run(model.train_op, feed_dict=train_dict)
                     xxx(sess, model, x, dict_)
                     gs = sess.run(model.global_step)
-                    saver.save(sess, 'data/model/model_%d' % total_batch_count)
+                    sv.saver.save(sess, 'data/model/model_%d' % total_batch_count)
                     _sample = np.random.choice(dev_ind, Params.batch_size)
                     samples = extract_by_indices(devdata, _sample)
                     xxx(sess, model, samples, dict_)
-                sv.saver.save(sess, 'data/model/model_epoch_%d' % gs)
+                saver.save(sess, 'data/model/model_epoch_%d' % gs)
 
 
 
