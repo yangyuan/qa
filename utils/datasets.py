@@ -179,15 +179,14 @@ class MacroDataSet(DataSet):
 
         range_a = None
         for answer in _data['answers']:
-            if answer in ['Yes', 'No']:
-                print("Ignored yes no question")
+            if answer in ['Yes', 'No', '']:
+                print("Ignored yes no empty question")
                 return []
             _words_a, _ = Tokenizer.encode_text(answer, self.words)
             _range_a = self._find_answer_index(words_p, _words_a)
             if _range_a is not None:
                 range_a = _range_a
                 break
-
             _words_a, _ = Tokenizer.encode_text(answer[0].lower() + answer[1:], self.words)
             _range_a = self._find_answer_index(words_p, _words_a)
             if _range_a is not None:
