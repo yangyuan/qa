@@ -239,6 +239,10 @@ def main():
 
     if not os.path.exists('data/model'):
         os.makedirs('data/model')
+    if not os.path.exists('data/model/epochs'):
+        os.makedirs('data/model/epochs')
+
+
 
     dict_ = Embedding()
     dict_.load('data/embedding')
@@ -252,7 +256,7 @@ def main():
     with model.graph.as_default():
         config = tf.ConfigProto()
         config.gpu_options.allow_growth = True
-        saver = tf.train.Saver()
+        saver = tf.train.Saver(max_to_keep=10000)
         sv = tf.train.Supervisor(logdir=Params.logdir,
                         save_model_secs=0,
                         global_step = model.global_step,
@@ -283,7 +287,7 @@ def main():
                     _sample = np.random.choice(dev_ind, Params.batch_size)
                     samples = extract_by_indices(devdata, _sample)
                     xxx(sess, model, samples, dict_)
-                saver.save(sess, 'data/model/model_epoch_%d' % gs)
+                saver.save(sess, 'data/model/epochs/model_epoch_%d' % gs)
 
 
 
