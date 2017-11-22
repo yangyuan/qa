@@ -64,7 +64,12 @@ class SquadDataSet(DataSet):
 
     def load(self, file):
         _data = json.load(open(file))
+        _size = len(_data['data'])
+        _count = 0
         for item in _data['data']:
+            _count += 1
+            if _count % 10 == 0:
+                print('%d/%d' % (_count, _size))
             for paragraph in item['paragraphs']:
                 self.data.extend(self.extract(paragraph))
 
@@ -114,18 +119,18 @@ class MacroDataSet(DataSet):
         self.words = words
 
     def load(self, file):
-        count = 0
+        _size = 0
         with open(file, 'r', encoding='utf8') as f:
             for _ in f:
-                count += 1
-        print(count)
+                _size += 1
+        print(_size)
 
         _count = 0
         with open(file, 'r', encoding='utf8') as f:
             for line in f:
                 _count += 1
                 if _count % 1000 == 0:
-                    print('%d/%d' % (_count, count))
+                    print('%d/%d' % (_count, _size))
                 _data = json.loads(line)
                 self.data.extend(self.extract(_data))
 
