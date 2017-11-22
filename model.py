@@ -1,11 +1,11 @@
-import tensorflow as tf
-from tqdm import tqdm
-from params import Params
 from layers import *
 from GRU import gated_attention_Wrapper, GRUCell, SRUCell
 from evaluate import *
 from data_load import *
 from tools.main import *
+from config import Config
+from utils import system
+import os
 
 
 class Model(object):
@@ -237,19 +237,15 @@ def main():
     model = Model(Params.batch_size, is_training=True)
     print("Built model")
 
-    if not os.path.exists('data/model'):
-        os.makedirs('data/model')
-    if not os.path.exists('data/model/epochs'):
-        os.makedirs('data/model/epochs')
-
-
-
     dict_ = Embedding()
-    dict_.load('data/embedding')
+    dict_.load(Config.data_embedding)
 
-    # TODO: only enable when developing
-    import shutil
-    shutil.rmtree(Params.logdir, ignore_errors=True)
+    if Config.clean_run:
+        system.remove_dir([Config.tf_log_dir, Config.tf_batch_dir, Config.tf_log_dir])
+    else:
+        system.remove_dir(Config.tf_log_dir)
+
+    system.ensure_dir([Config.tf_log_dir, Config.tf_batch_dir, Config.tf_log_dir])
 
     devdata, dev_ind = get_dev()
 
@@ -257,17 +253,15 @@ def main():
         config = tf.ConfigProto()
         config.gpu_options.allow_growth = True
         saver = tf.train.Saver(max_to_keep=10000)
-        sv = tf.train.Supervisor(logdir=Params.logdir,
+        sv = tf.train.Supervisor(logdir=Config.tf_log_dir,
                         save_model_secs=0,
                         global_step = model.global_step,
                         init_op = model.init_op)
         with sv.managed_session(config = config) as sess:
-            total_batch_count = 0
             for epoch in range(1, Params.num_epochs+1):
                 batch_index = 0
                 for x, total_batchs in batches(Params.batch_size):
                     batch_index += 1
-                    total_batch_count += 1
                     print("batch %d/%d" % (batch_index, total_batchs))
                     train_dict = {model.words_p_placeholder: x[0],
                                   model.words_q_placeholder: x[1],
@@ -283,11 +277,11 @@ def main():
                     sess.run(model.train_op, feed_dict=train_dict)
                     xxx(sess, model, x, dict_)
                     gs = sess.run(model.global_step)
-                    sv.saver.save(sess, 'data/model/model_%d' % total_batch_count)
+                    sv.saver.save(sess, os.path.join(Config.tf_batch_dir, 'model_%d' % gs))
                     _sample = np.random.choice(dev_ind, Params.batch_size)
                     samples = extract_by_indices(devdata, _sample)
                     xxx(sess, model, samples, dict_)
-                saver.save(sess, 'data/model/epochs/model_epoch_%d' % gs)
+                saver.save(sess, os.path.join(Config.tf_epoch_dir, 'model_epoch_%d' % epoch))
 
 
 

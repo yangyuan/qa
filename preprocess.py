@@ -1,17 +1,18 @@
 from utils.embeddings import Embedding, GloveEmbedding
 from utils.datasets import DataSet, SquadDataSet, MacroDataSet, BabiDataSet, CombinedDataSet
 import random
+from config import Config
 
 
 def process_embedding():
     embeddings = GloveEmbedding('data/glove.840B.300d.txt')
     embeddings.load()
-    embeddings.save('data/embedding')
+    embeddings.save(Config.data_embedding)
 
 
 def process_squad():
     embeddings = Embedding()
-    embeddings.load('data/embedding')
+    embeddings.load(Config.data_embedding)
 
     data = SquadDataSet(embeddings.words)
     data.load('data/squad/train-v1.1.json')
@@ -24,7 +25,7 @@ def process_squad():
 
 def process_macro():
     embeddings = Embedding()
-    embeddings.load('data/embedding')
+    embeddings.load(Config.data_embedding)
 
     data = MacroDataSet(embeddings.words)
     data.load('data/macro/train_v1.1.json')
@@ -37,7 +38,7 @@ def process_macro():
 
 def random_show():
     embeddings = Embedding()
-    embeddings.load('data/embedding')
+    embeddings.load(Config.data_embedding)
 
     data = CombinedDataSet()
     data.load(['data/macro-train', 'data/squad-train'])

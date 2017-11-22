@@ -1,8 +1,6 @@
 import os
 import pickle
 import json
-import unicodedata
-import spacy
 import re
 import nltk
 
