@@ -8,7 +8,7 @@ from params import Params
 import numpy as np
 import tensorflow as tf
 from tools.main import *
-from sklearn.model_selection import train_test_split
+from datautils import load_dev, load_train
 
 # Adapted from the `sugartensor` code.
 # https://github.com/buriburisuri/sugartensor/blob/master/sugartensor/sg_queue.py
@@ -110,78 +110,13 @@ class _FuncQueueRunner(tf.train.QueueRunner):
                 with self._lock:
                     self._runs_per_session[sess] -= 1
 
-def load_data(dir_):
-
-    data = DataSet()
-    data.load('data/babi-en-train')
-
-    q_word_ids = []
-    q_char_ids = []
-    q_char_len = []
-    q_word_len = []
-    p_word_ids = []
-    p_char_ids = []
-    p_char_len = []
-    p_word_len = []
-    indices = []
-    for words_p, chars_p, words_q, chars_q, range_a in data.data:
-        q_word_ids.append(words_q)
-        q_char_ids.append(chars_q)
-        q_char_len.append([len(x) for x in chars_q])
-        q_word_len.append(len(words_q))
-        p_word_ids.append(words_p)
-        p_char_ids.append(chars_p)
-        p_char_len.append([len(x) for x in chars_p])
-        p_word_len.append(len(words_p))
-        indices.append(range_a)
-
-    # Get max length to pad
-    p_max_word = Params.max_p_len#np.max(p_word_len)
-    p_max_char = Params.max_char_len#,max_value(p_char_len))
-    q_max_word = Params.max_q_len#,np.max(q_word_len)
-    q_max_char = Params.max_char_len#,max_value(q_char_len))
-
-    # pad_data
-    p_word_ids = pad_data(p_word_ids,p_max_word)
-    q_word_ids = pad_data(q_word_ids,q_max_word)
-    p_char_ids = pad_char_data(p_char_ids,p_max_char,p_max_word)
-    q_char_ids = pad_char_data(q_char_ids,q_max_char,q_max_word)
-
-    # to numpy
-    indices = np.reshape(np.asarray(indices,np.int32),(-1,2))
-    p_word_len = np.reshape(np.asarray(p_word_len,np.int32),(-1,1))
-    q_word_len = np.reshape(np.asarray(q_word_len,np.int32),(-1,1))
-    # p_char_len = pad_data(p_char_len,p_max_word)
-    # q_char_len = pad_data(q_char_len,q_max_word)
-    p_char_len = pad_char_len(p_char_len, p_max_word, p_max_char)
-    q_char_len = pad_char_len(q_char_len, q_max_word, q_max_char)
-
-    for i in range(p_word_len.shape[0]):
-        if p_word_len[i,0] > p_max_word:
-            p_word_len[i,0] = p_max_word
-    for i in range(q_word_len.shape[0]):
-        if q_word_len[i,0] > q_max_word:
-            q_word_len[i,0] = q_max_word
-
-    # shapes of each data
-    shapes=[(p_max_word,),(q_max_word,),
-            (p_max_word,p_max_char,),(q_max_word,q_max_char,),
-            (1,),(1,),
-            (p_max_word,),(q_max_word,),
-            (2,)]
-
-    return ([p_word_ids, q_word_ids,
-            p_char_ids, q_char_ids,
-            p_word_len, q_word_len,
-            p_char_len, q_char_len,
-            indices], shapes)
 
 def get_dev():
-    devset, shapes = load_data(Params.dev_dir)
+    devset, shapes = load_dev()
     indices = devset[-1]
     # devset = [np.reshape(input_, shapes[i]) for i,input_ in enumerate(devset)]
 
-    dev_ind = np.arange(indices.shape[0],dtype = np.int32)
+    dev_ind = np.arange(indices.shape[0], dtype=np.int32)
     np.random.shuffle(dev_ind)
     return devset, dev_ind
 
@@ -194,7 +129,7 @@ def extract_by_indices(_data, _indices):
 
 
 def batches(step):
-    devset, shapes = load_data(Params.train_dir)
+    devset, shapes = load_train()
 
     lens = []
     size = None
@@ -216,74 +151,3 @@ def batches(step):
 
         yield extract_by_indices(devset, batch_indices), k
 
-def get_batch(is_training = True):
-    """Loads training data and put them in queues"""
-    with tf.device('/cpu:0'):
-        # Load dataset
-        input_list, shapes = load_data(Params.train_dir if is_training else Params.dev_dir)
-        indices = input_list[-1]
-
-        train_ind = np.arange(indices.shape[0],dtype = np.int32)
-        np.random.shuffle(train_ind)
-
-        size = Params.data_size
-        if Params.data_size > indices.shape[0] or Params.data_size == -1:
-            size = indices.shape[0]
-        ind_list = tf.convert_to_tensor(train_ind[:size])
-
-        # Create Queues
-        ind_list = tf.train.slice_input_producer([ind_list], shuffle=True)
-
-        @producer_func
-        def get_data(ind):
-            '''From `_inputs`, which has been fetched from slice queues,
-               then enqueue them again.
-            '''
-            return [np.reshape(input_[ind], shapes[i]) for i,input_ in enumerate(input_list)]
-
-        data = get_data(inputs=ind_list,
-                        dtypes=[np.int32]*9,
-                        capacity=Params.batch_size*32,
-                        num_threads=6)
-
-        # create batch queues
-        batch = tf.train.batch(data,
-                                shapes=shapes,
-                                num_threads=2,
-                                batch_size=Params.batch_size,
-                                capacity=Params.batch_size*32,
-                                dynamic_pad=True)
-
-    return batch, size // Params.batch_size
-
-def pad_data(data, max_word):
-    padded_data = np.zeros((len(data),max_word),dtype = np.int32)
-    for i,line in enumerate(data):
-        for j,word in enumerate(line):
-            if j >= max_word:
-                print("skipped a word")
-                continue
-            padded_data[i,j] = word
-    return padded_data
-
-def pad_char_data(data, max_char, max_words):
-    padded_data = np.zeros((len(data),max_words,max_char),dtype = np.int32)
-    for i,line in enumerate(data):
-        for j,word in enumerate(line):
-            if j >= max_words:
-                  break
-            for k,char in enumerate(word):
-                if k >= max_char:
-                    # ignore the rest of the word if it's longer than the limit
-                    break
-                padded_data[i,j,k] = char
-    return padded_data
-
-def pad_char_len(data, max_word, max_char):
-    padded_data = np.zeros((len(data), max_word), dtype=np.int32)
-    for i, line in enumerate(data):
-        for j, word in enumerate(line):
-            if j >= max_word:
-                break
-            padded_data[i, j] = word if word <= max_char else max_char
-    return padded_data

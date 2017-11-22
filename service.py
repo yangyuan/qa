@@ -6,16 +6,18 @@ from data_load import extract_by_indices, get_dev
 import tensorflow as tf
 import numpy as np
 
-from flask import Flask
+from flask import Flask, jsonify, request
 
 from params import Params
 import datetime
+from utils.datasets import SampleDataSet
+from datautils import rectify_data
 
 
 class WtfApp:
     def __init__(self):
         print('loading model')
-        self.model = Model(50, is_training = False)
+        self.model = Model(2, is_training = False)
         print('loading embedding')
         dict_ = Embedding()
         dict_.load('data/embeddings')
@@ -44,29 +46,45 @@ class WtfApp:
         answer_predict = self.session.run(model.output_index, feed_dict=feed_dict)
         print(datetime.datetime.now())
         F1, EM = 0.0, 0.0
-        for _index in range(Params.batch_size):
+        for _index in range(2):
             f1, em = f1_and_EM(answer_predict[_index], samples[8][_index], samples[0][_index], dict_)
             F1 += f1
             EM += em
         F1 /= float(Params.batch_size)
         EM /= float(Params.batch_size)
         print("\nDev_Exact_match: {}\nDev_F1_score: {}".format(EM, F1))
+        return answer_predict[0]
 
 
-app = Flask(__name__)
+embeddings = Embedding()
+embeddings.load('data/embeddings')
+
+
+app = Flask(__name__, static_url_path='', static_folder='web')
 wtf = WtfApp()
 
 
-@app.route('/')
+@app.route('/qa', methods=['GET', 'POST'])
 def index():
-    print("start")
-    devdata, dev_ind = get_dev()
-    print("random data")
-    _sample = np.random.choice(dev_ind, Params.batch_size)
-    samples = extract_by_indices(devdata, _sample)
-    print("run data")
-    wtf.xxx(samples)
-    return "Hello, World!"
+    jsxx = request.form
+    print(jsxx)
+
+    data = SampleDataSet(embeddings.words, embeddings.chars)
+    data.load(jsxx['passage'], jsxx['question'], 2)
+    print(data.original_passage)
+
+    xxx, _ = rectify_data(data.data)
+    print(xxx)
+    _answer = wtf.xxx(xxx)
+
+    print(_answer)
+
+    _answer_words = []
+    for i in range(_answer[0], _answer[1] + 1):
+        _answer_words.append(data.original_passage[i])
+    answer = " ".join(_answer_words)
+
+    return jsonify({'answer': answer})
 
 
 if __name__ == '__main__':

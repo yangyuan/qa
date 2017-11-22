@@ -4,18 +4,18 @@ from params import Params
 from layers import *
 from GRU import gated_attention_Wrapper, GRUCell, SRUCell
 from evaluate import *
-import numpy as np
 from data_load import *
 from tools.main import *
-
-optimizer_factory = {"adadelta":tf.train.AdadeltaOptimizer,
-            "adam":tf.train.AdamOptimizer,
-            "gradientdescent":tf.train.GradientDescentOptimizer,
-            "adagrad":tf.train.AdagradOptimizer}
 
 
 class Model(object):
     def __init__(self, size, is_training=True):
+
+        self.optimizer_factory = {"adadelta":tf.train.AdadeltaOptimizer,
+            "adam":tf.train.AdamOptimizer,
+            "gradientdescent":tf.train.GradientDescentOptimizer,
+            "adagrad":tf.train.AdagradOptimizer}
+
         self.batch_size = size
         # Build the computational graph when initializing
         self.is_training = is_training
@@ -73,6 +73,10 @@ class Model(object):
             else:
                 self.outputs()
             total_params()
+
+    def char_level_embedding(self):
+        pass
+
 
     def encode_ids(self):
         with tf.device('/cpu:0'):
@@ -177,7 +181,7 @@ class Model(object):
             shapes = self.passage_w.shape
             self.indices_prob = tf.one_hot(self.indices, shapes[1])
             self.mean_loss = cross_entropy(self.points_logits, self.indices_prob)
-            self.optimizer = optimizer_factory[Params.optimizer](**Params.opt_arg[Params.optimizer])
+            self.optimizer = self.optimizer_factory[Params.optimizer](**Params.opt_arg[Params.optimizer])
 
             if Params.clip:
                 # gradient clipping by norm
@@ -228,9 +232,13 @@ def xxx(sess, model, samples, dict_):
              {model.F1_placeholder: F1, model.EM_placeholder: EM, model.dev_loss_placeholder: dev_loss})
     print("\nDev_loss: {}\nDev_Exact_match: {}\nDev_F1_score: {}".format(dev_loss, EM, F1))
 
+
 def main():
     model = Model(Params.batch_size, is_training=True)
     print("Built model")
+
+    if not os.path.exists('data/model'):
+        os.makedirs('data/model')
 
     dict_ = Embedding()
     dict_.load('data/embeddings')
@@ -244,15 +252,18 @@ def main():
     with model.graph.as_default():
         config = tf.ConfigProto()
         config.gpu_options.allow_growth = True
+        saver = tf.train.Saver()
         sv = tf.train.Supervisor(logdir=Params.logdir,
                         save_model_secs=0,
                         global_step = model.global_step,
                         init_op = model.init_op)
         with sv.managed_session(config = config) as sess:
+            total_batch_count = 0
             for epoch in range(1, Params.num_epochs+1):
                 batch_index = 0
                 for x, total_batchs in batches(Params.batch_size):
                     batch_index += 1
+                    total_batch_count += 1
                     print("batch %d/%d" % (batch_index, total_batchs))
                     train_dict = {model.words_p_placeholder: x[0],
                                   model.words_q_placeholder: x[1],
@@ -268,11 +279,11 @@ def main():
                     sess.run(model.train_op, feed_dict=train_dict)
                     xxx(sess, model, x, dict_)
                     gs = sess.run(model.global_step)
-                    sv.saver.save(sess, Params.logdir + '/model_epoch_%d' % gs)
-
-                _sample = np.random.choice(dev_ind, Params.batch_size)
-                samples = extract_by_indices(devdata, _sample)
-                xxx(sess, model, samples, dict_)
+                    saver.save(sess, 'model/model_%d' % total_batch_count)
+                    _sample = np.random.choice(dev_ind, Params.batch_size)
+                    samples = extract_by_indices(devdata, _sample)
+                    xxx(sess, model, samples, dict_)
+                sv.saver.save(sess, 'model/model_epoch_%d' % gs)
 
 
 

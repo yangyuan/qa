@@ -12,7 +12,7 @@ class Tokenizer:
         # _words = nltk.word_tokenize(content)
         nlp = spacy.blank('en')
         parsed = nlp(text)
-        tokens = [i.text for i in parsed]
+        tokens = [i.text for i in parsed if i.text != ' ']
         return tokens
 
     @staticmethod
@@ -20,12 +20,12 @@ class Tokenizer:
         return unicodedata.normalize('NFD', word)
 
     @staticmethod
-    def encode_text(content, words_id, chars_id):
+    def encode_text(content, words_id):
         _words = Tokenizer.word_tokenize(content)
-        return Tokenizer.encode_words(_words, words_id, chars_id)
+        return Tokenizer.encode_words(_words, words_id)
 
     @staticmethod
-    def encode_words(_words, words_id, chars_id):
+    def encode_words(_words, words_id):
         words = []
         chars = []
 
@@ -34,7 +34,7 @@ class Tokenizer:
 
             _chars = []
             for _char in Tokenizer.char_tokenize(_word):
-                _chars.append(chars_id.get(_char, 0))
+                _chars.append(ord(_char))
 
             chars.append(_chars)
         return words, chars
@@ -56,20 +56,17 @@ class DataSet:
         with open(os.path.join(folder, "data.pkl"), 'rb') as handle:
             self.data = pickle.load(handle)
 
-    def _sss(self):
-        pass
-
 
 class SquadDataSet(DataSet):
-    def __init__(self, words, chars):
+    def __init__(self, words):
         super().__init__()
         self.words = words
-        self.chars = chars
 
     def load(self, file):
         _data = json.load(open(file))
-        for paragraph in _data['data'][0]['paragraphs']:
-            self.data.extend(self.extract(paragraph))
+        for item in _data['data']:
+            for paragraph in item['paragraphs']:
+                self.data.extend(self.extract(paragraph))
 
     @staticmethod
     def _find_answer_index(context, answer, offset):
@@ -81,19 +78,22 @@ class SquadDataSet(DataSet):
     def extract(self, paragraph):
 
         pairs = []
-        words_p, chars_p = Tokenizer.encode_text(paragraph['context'], self.words, self.chars)
+        words_p, chars_p = Tokenizer.encode_text(paragraph['context'], self.words)
 
         for qas in paragraph['qas']:
             question = qas['question']
-            words_q, chars_q = Tokenizer.encode_text(question, self.words, self.chars)
+            words_q, chars_q = Tokenizer.encode_text(question, self.words)
             # TODO: Load all unique answers
             answer = qas['answers'][0]
             # answer['answer_start']
-            words_p_prefix, _ = Tokenizer.encode_text(paragraph['context'][0: answer['answer_start']], self.words, self.chars)
-            words_a, _ = Tokenizer.encode_text(answer['text'], self.words, self.chars)
+            words_p_prefix, _ = Tokenizer.encode_text(paragraph['context'][0: answer['answer_start']], self.words)
+            words_a, _ = Tokenizer.encode_text(answer['text'], self.words)
 
             if len(words_p) >= 300:
                 print("Ignored long p")
+                continue
+            if len(words_q) >= 30:
+                print("Ignored long q")
                 continue
 
             range_a = self._find_answer_index(words_p, words_a, len(words_p_prefix))
@@ -108,11 +108,114 @@ class SquadDataSet(DataSet):
         return pairs
 
 
-class BabiDataSet(DataSet):
-    def __init__(self, words, chars):
+class MacroDataSet(DataSet):
+    def __init__(self, words):
         super().__init__()
         self.words = words
-        self.chars = chars
+
+    def load(self, file):
+        count = 0
+        with open(file, 'r', encoding='utf8') as f:
+            for _ in f:
+                count += 1
+        print(count)
+
+        _count = 0
+        with open(file, 'r', encoding='utf8') as f:
+            for line in f:
+                _count += 1
+                if _count >= 1000:
+                    break
+                _data = json.loads(line)
+                self.data.extend(self.extract(_data))
+
+    @staticmethod
+    def _find_answer_index(context, answer):
+        window_len = len(answer)
+        find = None
+        for i in range(len(context)):
+            if context[i:i + window_len] == answer:
+                if find is None:
+                    find = [i, i + window_len - 1]
+                else:
+                    return None
+        return find
+
+    @staticmethod
+    def _select_passage(_data):
+        for item in _data['passages']:
+            if item['is_selected'] == 1:
+                return item['passage_text']
+        return None
+
+    def extract(self, _data):
+        passage = self._select_passage(_data)
+        if passage is None:
+            print('no selected passage')
+            return []
+
+        question = _data['query']
+
+        words_p, chars_p = Tokenizer.encode_text(passage, self.words)
+        words_q, chars_q = Tokenizer.encode_text(question, self.words)
+
+        if len(words_p) >= 300:
+            print("Ignored long p")
+            return []
+        if len(words_q) >= 30:
+            print("Ignored long q")
+            return []
+
+        range_a = None
+        for answer in _data['answers']:
+            if answer in ['Yes', 'No']:
+                print("Ignored yes no question")
+                return []
+            _words_a, _ = Tokenizer.encode_text(answer, self.words)
+            _range_a = self._find_answer_index(words_p, _words_a)
+            if _range_a is not None:
+                range_a = _range_a
+                break
+
+            _words_a, _ = Tokenizer.encode_text(answer[0].lower() + answer[1:], self.words)
+            _range_a = self._find_answer_index(words_p, _words_a)
+            if _range_a is not None:
+                range_a = _range_a
+                break
+
+            if answer[-1] != '.':
+                continue
+            _words_a, _ = Tokenizer.encode_text(answer[:-1], self.words)
+            _range_a = self._find_answer_index(words_p, _words_a)
+            if _range_a is not None:
+                range_a = _range_a
+                break
+
+            _words_a, _ = Tokenizer.encode_text(answer[0].lower() + answer[1:-1], self.words)
+            _range_a = self._find_answer_index(words_p, _words_a)
+            if _range_a is not None:
+                range_a = _range_a
+                break
+
+            if answer[0:3] != 'It ':
+                continue
+            _words_a, _ = Tokenizer.encode_text(answer[3:], self.words)
+            _range_a = self._find_answer_index(words_p, _words_a)
+            if _range_a is not None:
+                range_a = _range_a
+                break
+
+        if range_a is None:
+            print("Ignored one answer not found in question")
+            return []
+
+        return [[words_p, chars_p, words_q, chars_q, range_a]]
+
+
+class BabiDataSet(DataSet):
+    def __init__(self, words):
+        super().__init__()
+        self.words = words
 
     def load(self, file):
         with open(file, 'r') as f:
@@ -191,10 +294,44 @@ class BabiDataSet(DataSet):
 
                 passage.extend(raw_passage[i])
 
-            words_p, chars_p = Tokenizer.encode_words(passage, self.words, self.chars)
-            words_q, chars_q = Tokenizer.encode_words(question, self.words, self.chars)
+            words_p, chars_p = Tokenizer.encode_words(passage, self.words)
+            words_q, chars_q = Tokenizer.encode_words(question, self.words)
             range_a = [answer_index, answer_index + len(raw_answer) - 1]
 
             pairs.append([words_p, chars_p, words_q, chars_q, range_a])
 
         return pairs
+
+
+class SampleDataSet(DataSet):
+    def __init__(self, words):
+        super().__init__()
+        self.words = words
+        self.original_passage = []
+
+    def load(self, passage, question, duplicate=1):
+        pairs = []
+        words_p, chars_p = Tokenizer.encode_text(passage, self.words)
+        words_q, chars_q = Tokenizer.encode_text(question, self.words)
+        range_a = [0, 0]
+        for _ in range(duplicate):
+            pairs.append([words_p, chars_p, words_q, chars_q, range_a])
+        self.original_passage = Tokenizer.word_tokenize(passage)
+
+        self.data = pairs
+
+
+class CombinedDataSet:
+    def __init__(self):
+        self.data = []
+        pass
+
+    def save(self, folder):
+        raise Exception('combined dataSet cannot be saved')
+
+    def load(self, folders):
+        for folder in folders:
+            with open(os.path.join(folder, "data.pkl"), 'rb') as handle:
+                self.data.extend(pickle.load(handle))
+                print(len(self.data))
+                print(folder)

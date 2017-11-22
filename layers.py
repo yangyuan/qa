@@ -20,7 +20,7 @@ W_v^Q.shape:    (attn_size, attn_size)
 def get_attn_params(attn_size,initializer = tf.truncated_normal_initializer):
     '''
     Args:
-        attn_size: the size of attention specified in https://www.microsoft.com/en-us/research/wp-content/uploads/2017/05/r-net.pdf
+        attn_size: the size of attention specified in https://static.microsoft.com/en-us/research/wp-content/uploads/2017/05/r-net.pdf
         initializer: the author of the original paper used gaussian initialization however I found xavier converge faster
 
     Returns:
@@ -47,10 +47,6 @@ def encoding(word, char, word_embeddings, char_embeddings, scope = "embedding"):
         return word_encoding, char_encoding
 
 
-def encoding2(word,word_embeddings, scope = "embedding"):
-    with tf.variable_scope(scope):
-        word_encoding = tf.nn.embedding_lookup(word_embeddings, word)
-        return word_encoding
 
 def apply_dropout(inputs, size = None, is_training = True):
     '''
@@ -68,6 +64,90 @@ def apply_dropout(inputs, size = None, is_training = True):
                                             dtype = tf.float32)
     else:
         return inputs
+
+
+def birnn_chars(inputs,
+                inputs_len,
+                cell=None,
+                cell_fn=tf.contrib.rnn.GRUCell,
+                units=Params.attn_size,
+                layers=1,
+                scope="Bidirectional_GRU",
+                output=0,
+                is_training=True,
+                reuse=None):
+
+    '''
+    self.passage_char_encoded,
+    self.passage_c_len,
+    cell_fn = SRUCell if Params.SRU else GRUCell,
+    scope = "passage_char_encoding",
+    output = 1,
+    is_training = self.is_training
+    '''
+
+    with tf.variable_scope('BiRNN_chars'):
+        if cell is not None:
+            (cell_fw, cell_bw) = cell
+        else:
+            shapes = inputs.get_shape().as_list()
+            print(shapes)
+            if len(shapes) > 3:
+                inputs = tf.reshape(inputs, (shapes[0]*shapes[1], shapes[2], shapes[3]))
+                inputs_len = tf.reshape(inputs_len, (shapes[0]*shapes[1],))
+                print(inputs_len.get_shape().as_list())
+
+            ell_fw, cell_bw = [apply_dropout(cell_fn(units), size = inputs.shape[-1], is_training = is_training) for _ in range(2)]
+
+        outputs, states = tf.nn.bidirectional_dynamic_rnn(cell_fw, cell_bw, inputs,
+                                                        sequence_length = inputs_len,
+                                                        dtype=tf.float32)
+
+        if output == 0:
+            return tf.concat(outputs, 2)
+        elif output == 1:
+            lenx = int(tf.concat(states,1).shape[0])
+            lenx /= shapes[1]
+            return tf.reshape(tf.concat(states,1),(int(lenx), shapes[1], 2*units))
+
+def bidirectional_GRU2(inputs,
+                       inputs_len,
+                       cell=None,
+                       cell_fn=tf.contrib.rnn.GRUCell,
+                       units=Params.attn_size,
+                       layers=1,
+                       scope="Bidirectional_GRU",
+                       output=0,
+                       is_training=True,
+                       reuse=None):
+
+    with tf.variable_scope(scope, reuse = reuse):
+        if cell is not None:
+            (cell_fw, cell_bw) = cell
+        else:
+            shapes = inputs.get_shape().as_list()
+            if len(shapes) > 3:
+                inputs = tf.reshape(inputs,(shapes[0]*shapes[1],shapes[2],-1))
+                inputs_len = tf.reshape(inputs_len,(shapes[0]*shapes[1],))
+
+            # if no cells are provided, use standard GRU cell implementation
+            if layers > 1:
+                cell_fw = MultiRNNCell([apply_dropout(cell_fn(units), size = inputs.shape[-1] if i == 0 else units, is_training = is_training) for i in range(layers)])
+                cell_bw = MultiRNNCell([apply_dropout(cell_fn(units), size = inputs.shape[-1] if i == 0 else units, is_training = is_training) for i in range(layers)])
+            else:
+                cell_fw, cell_bw = [apply_dropout(cell_fn(units), size = inputs.shape[-1], is_training = is_training) for _ in range(2)]
+
+        outputs, states = tf.nn.bidirectional_dynamic_rnn(cell_fw, cell_bw, inputs,
+                                                        sequence_length = inputs_len,
+                                                        dtype=tf.float32)
+
+        if output == 0:
+            return tf.concat(outputs, 2)
+        elif output == 1:
+            lenx = int(tf.concat(states,1).shape[0])
+            lenx /= shapes[1]
+            return tf.reshape(tf.concat(states,1),(int(lenx), shapes[1], 2*units))
+
 
 def bidirectional_GRU(inputs, inputs_len, cell = None, cell_fn = tf.contrib.rnn.GRUCell, units = Params.attn_size, layers = 1, scope = "Bidirectional_GRU", output = 0, is_training = True, reuse = None):
     '''
@@ -107,6 +187,7 @@ def bidirectional_GRU(inputs, inputs_len, cell = None, cell_fn = tf.contrib.rnn.
             lenx = int(tf.concat(states,1).shape[0])
             lenx /= shapes[1]
             return tf.reshape(tf.concat(states,1),(int(lenx), shapes[1], 2*units))
+
 
 def pointer_net(passage, passage_len, question, question_len, cell, params, scope = "pointer_network"):
     '''
