@@ -6,6 +6,7 @@ import re
 import argparse
 import json
 import sys
+from config import Config
 
 
 def f1_and_EM(index, ground_truth, passage, dict_):
@@ -17,7 +18,8 @@ def f1_and_EM(index, ground_truth, passage, dict_):
 
     answer_predict = _extract_answer(index, passage, dict_.word_index)
     answer_ground_truth = _extract_answer(ground_truth, passage, dict_.word_index)
-    print('"%s" vs "%s"' % (answer_ground_truth, answer_predict))
+    if Config.debug:
+        print('"%s" vs "%s"' % (answer_ground_truth, answer_predict))
     f1 = f1_score(answer_predict, answer_ground_truth)
     EM = exact_match_score(answer_predict, answer_ground_truth)
     return f1, EM

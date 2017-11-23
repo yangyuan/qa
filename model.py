@@ -6,6 +6,7 @@ from tools.main import *
 from config import Config
 from utils import system
 import os
+import datetime
 
 
 class Model(object):
@@ -231,6 +232,7 @@ def xxx(sess, model, samples, dict_):
     sess.run(model.metric_assign,
              {model.F1_placeholder: F1, model.EM_placeholder: EM, model.dev_loss_placeholder: dev_loss})
     print("\nDev_loss: {}\nDev_Exact_match: {}\nDev_F1_score: {}".format(dev_loss, EM, F1))
+    print(datetime.datetime.now())
 
 
 def main():
