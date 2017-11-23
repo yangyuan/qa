@@ -262,9 +262,9 @@ def main():
         with sv.managed_session(config = config) as sess:
             for epoch in range(1, Params.num_epochs+1):
                 batch_index = 0
-                for x, total_batchs in batches(Params.batch_size):
+                for x, total_batches in batches(Params.batch_size):
                     batch_index += 1
-                    print("batch %d/%d" % (batch_index, total_batchs))
+                    print("batch %d/%d" % (batch_index, total_batches))
                     train_dict = {model.words_p_placeholder: x[0],
                                   model.words_q_placeholder: x[1],
                                   model.chars_p_placeholder: x[2],
@@ -277,12 +277,12 @@ def main():
                                   model.word_embeddings_placeholder: dict_.word_embedding}
 
                     sess.run(model.train_op, feed_dict=train_dict)
-                    xxx(sess, model, x, dict_)
                     gs = sess.run(model.global_step)
                     sv.saver.save(sess, os.path.join(Config.tf_batch_dir, 'model_%d' % gs))
-                    _sample = np.random.choice(dev_ind, Params.batch_size)
-                    samples = extract_by_indices(devdata, _sample)
-                    xxx(sess, model, samples, dict_)
+                    if batch_index % 10 == 0:
+                        _sample = np.random.choice(dev_ind, Params.batch_size)
+                        samples = extract_by_indices(devdata, _sample)
+                        xxx(sess, model, samples, dict_)
                 saver.save(sess, os.path.join(Config.tf_epoch_dir, 'model_epoch_%d' % epoch))
 
 
