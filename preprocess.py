@@ -36,6 +36,32 @@ def process_macro():
     data.save('data/macro-dev')
 
 
+def process_babi_en():
+    embeddings = Embedding()
+    embeddings.load(Config.data_embedding)
+
+    data = BabiDataSet(embeddings.words)
+    data.load('data/babi/tasks_1-20_v1-2/en/qa1_single-supporting-fact_train.txt')
+    data.save('data/babi-en-train')
+
+    data = BabiDataSet(embeddings.words)
+    data.load('data/babi/tasks_1-20_v1-2/en/qa1_single-supporting-fact_test.txt')
+    data.save('data/babi-en-dev')
+
+
+def process_babi_hn():
+    embeddings = Embedding()
+    embeddings.load(Config.data_embedding)
+
+    data = BabiDataSet(embeddings.words)
+    data.load('data/babi/tasks_1-20_v1-2/hn/qa1_single-supporting-fact_train.txt')
+    data.save('data/babi-hn-train')
+
+    data = BabiDataSet(embeddings.words)
+    data.load('data/babi/tasks_1-20_v1-2/hn/qa1_single-supporting-fact_test.txt')
+    data.save('data/babi-hn-dev')
+
+
 def random_show():
     embeddings = Embedding()
     embeddings.load(Config.data_embedding)
@@ -74,11 +100,9 @@ if __name__ == '__main__':
     process_embedding()
     process_squad()
     process_macro()
+    process_babi_en()
+    process_babi_hn()
     random_show()
-
-
-    exit()
-    process_macro()
 
 
 

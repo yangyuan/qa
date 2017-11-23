@@ -11,5 +11,7 @@ class Config:
 
     data_embedding = 'data/embedding'
 
+    babi = False
+
     def __init__(self):
         pass

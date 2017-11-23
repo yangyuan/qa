@@ -1,6 +1,7 @@
 import numpy as np
 from params import Params
 from utils.datasets import CombinedDataSet
+from config import Config
 
 
 def rectify_data(data):
@@ -104,7 +105,11 @@ def pad_char_len(data, max_word, max_char):
 def load_dev():
 
     data = CombinedDataSet()
-    data.load(['data/squad-dev', 'data/macro-dev'])
+
+    if Config.babi:
+        data.load(['data/babi-en-dev', 'data/babi-hn-dev'])
+    else:
+        data.load(['data/squad-dev', 'data/macro-dev'])
 
     return rectify_data(data.data)
 
@@ -112,6 +117,9 @@ def load_dev():
 def load_train():
 
     data = CombinedDataSet()
-    data.load(['data/squad-train', 'data/macro-train'])
+    if Config.babi:
+        data.load(['data/babi-en-train', 'data/babi-hn-train'])
+    else:
+        data.load(['data/squad-train', 'data/macro-train'])
 
     return rectify_data(data.data)

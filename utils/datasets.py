@@ -281,12 +281,26 @@ class BabiDataSet(DataSet):
             first_evidence_line_index = raw_pair[3][0]
             first_evidence_line = raw_passage[first_evidence_line_index]
 
+            def _similar_equal(_x, _y):
+                if _x == _y:
+                    return True
+                count_match = 0
+                count_dismatch = 0
+                for x_c, y_c in zip(_x, _y):
+                    if x_c == y_c:
+                        count_match += 1
+                    else:
+                        count_dismatch += 1
+                if count_dismatch <= 1 and count_match >= 6:
+                    return True
+                return False
+
             answer_index = -1
             for i in range(len(first_evidence_line)):
                 for j in range(len(raw_answer)):
                     if i + j >= len(first_evidence_line):
                         break
-                    if raw_answer[j] != first_evidence_line[i+j]:
+                    if not _similar_equal(raw_answer[j], first_evidence_line[i+j]):
                         break
                     answer_index = i
             if answer_index == -1:
