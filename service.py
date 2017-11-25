@@ -59,7 +59,7 @@ def index():
 
 
 @app.route('/qa', methods=['GET', 'POST'])
-def index():
+def qa():
     jsxx = request.form
 
     data = SampleDataSet(embeddings.words)
@@ -76,6 +76,7 @@ def index():
         return jsonify({'answer': answer})
     except Exception as e:
         return jsonify({'error': str(e.args[0])})
+
 
 
 if __name__ == '__main__':
