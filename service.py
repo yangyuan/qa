@@ -1,11 +1,10 @@
 from model import Model
-from evaluate import f1_and_EM
 from utils.embeddings import Embedding
 from config import Config
 
 import tensorflow as tf
 
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, redirect
 
 import datetime
 from utils.datasets import SampleDataSet
@@ -24,7 +23,7 @@ class WtfApp:
             self.session = tf.Session()
             self.dict = dict_
             print('restoring checkpoint')
-            saver.restore(self.session, tf.train.latest_checkpoint(Config.tf_batch_dir))
+            saver.restore(self.session, tf.train.latest_checkpoint(Config.service_dir))
             print("ready")
 
     def xxx(self, samples):
@@ -43,14 +42,6 @@ class WtfApp:
         print(datetime.datetime.now())
         answer_predict = self.session.run(model.output_index, feed_dict=feed_dict)
         print(datetime.datetime.now())
-        F1, EM = 0.0, 0.0
-        for _index in range(Config.service_batch_size):
-            f1, em = f1_and_EM(answer_predict[_index], samples[8][_index], samples[0][_index], dict_)
-            F1 += f1
-            EM += em
-        F1 /= float(Config.service_batch_size)
-        EM /= float(Config.service_batch_size)
-        print("\nDev_Exact_match: {}\nDev_F1_score: {}".format(EM, F1))
         return answer_predict[0]
 
 
@@ -62,28 +53,30 @@ app = Flask(__name__, static_url_path='', static_folder='web')
 wtf = WtfApp()
 
 
+@app.route("/")
+def index():
+    return redirect('/index.html')
+
+
 @app.route('/qa', methods=['GET', 'POST'])
 def index():
     jsxx = request.form
-    print(jsxx)
 
     data = SampleDataSet(embeddings.words)
     data.load(jsxx['passage'], jsxx['question'], Config.service_batch_size)
-    print(data.original_passage)
 
-    xxx, _ = rectify_data(data.data)
-    print(xxx)
-    _answer = wtf.xxx(xxx)
+    try:
+        xxx, _ = rectify_data(data.data)
+        _answer = wtf.xxx(xxx)
 
-    print(_answer)
-
-    _answer_words = []
-    for i in range(_answer[0], _answer[1] + 1):
-        _answer_words.append(data.original_passage[i])
-    answer = " ".join(_answer_words)
-
-    return jsonify({'answer': answer})
+        _answer_words = []
+        for i in range(_answer[0], _answer[1] + 1):
+            _answer_words.append(data.original_passage[i])
+        answer = " ".join(_answer_words)
+        return jsonify({'answer': answer})
+    except Exception as e:
+        return jsonify({'error': str(e.args[0])})
 
 
 if __name__ == '__main__':
-    app.run(debug=False)
+    app.run(host='0.0.0.0', port=80, debug=False)

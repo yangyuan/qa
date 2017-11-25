@@ -14,8 +14,13 @@ function launch() {
         dataType: 'json'}
         ).done(function(data) {
             $("#qa-out").empty();
-            var tmp = $('<div></div>').addClass("alert alert-success row").append(data["answer"]);
-            $("#qa-out").append(tmp);
+            if (data["error"] != undefined && data["error"] != null) {
+                var tmp = $('<div></div>').addClass("alert alert-danger row").append(data["error"]);
+                $("#qa-out").append(tmp);
+            } else {
+                var tmp = $('<div></div>').addClass("alert alert-success row").append(data["answer"]);
+                $("#qa-out").append(tmp);
+            }
         }).fail(function(xhr, textStatus, errorThrown){
             $("#qa-out").empty();
             var tmp = $('<div></div>').addClass("alert alert-danger row").append(errorThrown);

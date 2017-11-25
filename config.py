@@ -3,6 +3,7 @@
 class Config:
     debug = False
     service_batch_size = 2
+    service_dir = 'data/model/_general'
     clean_run = True
 
     tf_epoch_dir = 'data/model/epoch'

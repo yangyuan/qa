@@ -15,6 +15,10 @@ def rectify_data(data):
     p_word_len = []
     indices = []
     for words_p, chars_p, words_q, chars_q, range_a in data:
+        if len(words_p) >= Params.max_p_len:
+            raise Exception('Passage number of words should be smaller than 300.')
+        if len(words_q) >= Params.max_q_len:
+            raise Exception('Question number of words should be smaller than 30.')
         q_word_ids.append(words_q)
         q_char_ids.append(chars_q)
         q_char_len.append([len(x) for x in chars_q])
