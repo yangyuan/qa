@@ -1,3 +1,7 @@
+.container {
+    width:800px;
+}
+
 .header {
   padding-top: 1.5rem;
   padding-bottom: 1rem;
@@ -12,32 +16,10 @@
   margin-top: 2rem;
 }
 
-#racket-code {
-    resize: none;
-    font-family: Consolas, "Courier New", monospace;
-    font-weight: normal;
-    font-size: 14px;
-    line-height: 19px;
-}
-
-#editor { 
-    height: 600px;
-    border: 1px solid #ddd;
-    border-radius: 1px;
-}
-
 #toolbox {
-    height: 600px;
+    height: 400px;
 }
 
 #tools {
     height: 50px;
-}
-
-#racket-out {
-    height: 550px;
-    border: 1px solid #ddd;
-    border-radius: 1px;
-    padding:15px;
-    overflow-y: auto;
 }
