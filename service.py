@@ -10,6 +10,9 @@ import datetime
 from utils.datasets import SampleDataSet
 from datautils import rectify_data
 
+import requests
+from urllib.parse import quote
+
 
 class WtfApp:
     def __init__(self):
@@ -77,6 +80,41 @@ def qa():
     except Exception as e:
         return jsonify({'error': str(e.args[0])})
 
+
+@app.route('/what', methods=['GET', 'POST'])
+def what():
+    jsxx = request.form
+
+    data = SampleDataSet(embeddings.words)
+
+    try:
+        title = jsxx['question']
+        resp = requests.get(
+            "https://en.wikipedia.org/w/api.php?action=query&format=json&prop=extracts&exintro&explaintext&titles="
+            + quote(title))
+        page = list(resp.json()['query']['pages'].values())[0]
+        text = page['extract']
+    except Exception as e:
+        print(e)
+        return jsonify({'error': 'Failed to fetch the wiki page.'})
+
+    question = 'What is ' + title + '?'
+
+    import nltk
+    text = list(nltk.word_tokenize(text))[0:256]
+    data.load(' '.join(text), question, Config.service_batch_size)
+
+    try:
+        xxx, _ = rectify_data(data.data)
+        _answer = wtf.xxx(xxx)
+
+        _answer_words = []
+        for i in range(_answer[0], _answer[1] + 1):
+            _answer_words.append(data.original_passage[i])
+        answer = " ".join(_answer_words)
+        return jsonify({'answer': answer})
+    except Exception as e:
+        return jsonify({'error': str(e.args[0])})
 
 
 if __name__ == '__main__':
