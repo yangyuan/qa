@@ -1,5 +1,6 @@
 import numpy as np
-from params import Params
+from config import Params
+import math
 from utils.datasets import CombinedDataSet
 from config import Config
 
@@ -124,6 +125,46 @@ def load_train():
     if Config.babi:
         data.load(['data/babi-en-train', 'data/babi-hn-train'])
     else:
-        data.load(['data/squad-train', 'data/macro-train'])
+        data.load(['data/squad-train', 'data/macro-train', 'data/extra-train'])
 
     return rectify_data(data.data)
+
+
+def dev_all():
+    devset, shapes = load_dev()
+    indices = devset[-1]
+
+    dev_ind = np.arange(indices.shape[0], dtype=np.int32)
+    np.random.shuffle(dev_ind)
+    return devset, dev_ind
+
+
+def train_batches(step):
+    devset, shapes = load_train()
+
+    lens = []
+    size = None
+    for x in range(9):
+        size = devset[x].shape[0]
+        lens.append(devset[x].shape[0])
+    assert [size] * 9 == lens
+
+    indices = np.asarray(range(size))
+    np.random.shuffle(indices)
+
+    k = math.ceil(size/step)
+
+    for i in range(0, k):
+        batch_indices = list(range(i*step, min((i+1)*step, size)))
+        batch_indices = indices[batch_indices]
+        if len(batch_indices) < step:
+            break
+
+        yield extract_by_indices(devset, batch_indices), k
+
+
+def extract_by_indices(_data, _indices):
+    batch = []
+    for x in range(9):
+        batch.append(_data[x][_indices])
+    return batch

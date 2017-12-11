@@ -1,5 +1,5 @@
 from utils.embeddings import Embedding, GloveEmbedding
-from utils.datasets import DataSet, SquadDataSet, MacroDataSet, BabiDataSet, CombinedDataSet
+from utils.datasets import SquadDataSet, MacroDataSet, BabiDataSet, CombinedDataSet
 import random
 from config import Config
 

@@ -1,12 +1,18 @@
-from layers import *
-from GRU import gated_attention_Wrapper, GRUCell, SRUCell
-from evaluate import *
-from data_load import *
-from tools.main import *
-from config import Config
-from utils import system
-import os
 import datetime
+import os
+import numpy as np
+import tensorflow as tf
+
+from config import Config, Params
+from evaluate import scores
+from utils import system
+from utils.embeddings import Embedding
+from utils.gru import gated_attention_Wrapper, GRUCell, SRUCell
+from datautils import train_batches, dev_all, extract_by_indices
+
+
+from utils.layers import get_attn_params, total_params,\
+    encoding, bidirectional_GRU, apply_dropout, attention_rnn, pointer_net, cross_entropy
 
 
 class Model(object):
@@ -208,7 +214,7 @@ class Model(object):
         self.merged = tf.summary.merge_all()
 
 
-def xxx(sess, model, samples, dict_):
+def evaluate_dev(sess, model, samples, dict_):
     feed_dict = {model.words_p_placeholder: samples[0],
                  model.words_q_placeholder: samples[1],
                  model.chars_p_placeholder: samples[2],
@@ -224,7 +230,7 @@ def xxx(sess, model, samples, dict_):
     answer_predict = np.argmax(logits, axis=2)
     F1, EM = 0.0, 0.0
     for _index in range(Params.batch_size):
-        f1, em = f1_and_EM(answer_predict[_index], samples[8][_index], samples[0][_index], dict_)
+        f1, em = scores(answer_predict[_index], samples[8][_index], samples[0][_index], dict_)
         F1 += f1
         EM += em
     F1 /= float(Params.batch_size)
@@ -249,7 +255,7 @@ def main():
 
     system.ensure_dir([Config.tf_log_dir, Config.tf_batch_dir, Config.tf_log_dir])
 
-    devdata, dev_ind = get_dev()
+    devdata, dev_ind = dev_all()
 
     with model.graph.as_default():
         config = tf.ConfigProto()
@@ -262,7 +268,7 @@ def main():
         with sv.managed_session(config = config) as sess:
             for epoch in range(1, Params.num_epochs+1):
                 batch_index = 0
-                for x, total_batches in batches(Params.batch_size):
+                for x, total_batches in train_batches(Params.batch_size):
                     batch_index += 1
                     print("batch %d/%d" % (batch_index, total_batches))
                     train_dict = {model.words_p_placeholder: x[0],
@@ -282,25 +288,9 @@ def main():
                     if batch_index % 10 == 0:
                         _sample = np.random.choice(dev_ind, Params.batch_size)
                         samples = extract_by_indices(devdata, _sample)
-                        xxx(sess, model, samples, dict_)
+                        evaluate_dev(sess, model, samples, dict_)
                 saver.save(sess, os.path.join(Config.tf_epoch_dir, 'model_epoch_%d' % epoch))
 
-
-
-'''
-if __name__ == '__main__':
-    if Params.mode.lower() == "debug":
-        print("Debugging...")
-        debug()
-    elif Params.mode.lower() == "test":
-        print("Testing on dev set...")
-        test()
-    elif Params.mode.lower() == "train":
-        print("Training...")
-        main()
-    else:
-        print("Invalid mode.")
-'''
 
 if __name__ == '__main__':
     main()

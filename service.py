@@ -14,10 +14,10 @@ import requests
 from urllib.parse import quote
 
 
-class WtfApp:
+class DemoApp:
     def __init__(self):
         print('loading model')
-        self.model = Model(Config.service_batch_size, is_training = False)
+        self.model = Model(Config.service_batch_size, is_training=False)
         print('loading embedding')
         dict_ = Embedding()
         dict_.load(Config.data_embedding)
@@ -29,7 +29,7 @@ class WtfApp:
             saver.restore(self.session, tf.train.latest_checkpoint(Config.service_dir))
             print("ready")
 
-    def xxx(self, samples):
+    def predict(self, samples):
         model = self.model
         dict_ = self.dict
         feed_dict = {model.words_p_placeholder: samples[0],
@@ -53,7 +53,7 @@ embeddings.load(Config.data_embedding)
 
 
 app = Flask(__name__, static_url_path='', static_folder='web')
-wtf = WtfApp()
+wtf = DemoApp()
 
 
 @app.route("/")
@@ -63,14 +63,14 @@ def index():
 
 @app.route('/qa', methods=['GET', 'POST'])
 def qa():
-    jsxx = request.form
+    form = request.form
 
     data = SampleDataSet(embeddings.words)
-    data.load(jsxx['passage'], jsxx['question'], Config.service_batch_size)
+    data.load(form['passage'], form['question'], Config.service_batch_size)
 
     try:
-        xxx, _ = rectify_data(data.data)
-        _answer = wtf.xxx(xxx)
+        _x, _ = rectify_data(data.data)
+        _answer = wtf.predict(_x)
 
         _answer_words = []
         for i in range(_answer[0], _answer[1] + 1):
@@ -81,14 +81,16 @@ def qa():
         return jsonify({'error': str(e.args[0])})
 
 
+# another demo for what is questions.
+# can work in some concepts which have Wikipedia names
 @app.route('/what', methods=['GET', 'POST'])
 def what():
-    jsxx = request.form
+    form = request.form
 
     data = SampleDataSet(embeddings.words)
 
     try:
-        title = jsxx['question']
+        title = form['question']
         resp = requests.get(
             "https://en.wikipedia.org/w/api.php?action=query&format=json&prop=extracts&exintro&explaintext&titles="
             + quote(title))
@@ -105,8 +107,8 @@ def what():
     data.load(' '.join(text), question, Config.service_batch_size)
 
     try:
-        xxx, _ = rectify_data(data.data)
-        _answer = wtf.xxx(xxx)
+        _x, _ = rectify_data(data.data)
+        _answer = wtf.predict(_x)
 
         _answer_words = []
         for i in range(_answer[0], _answer[1] + 1):

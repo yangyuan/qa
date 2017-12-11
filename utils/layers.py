@@ -1,10 +1,9 @@
 import tensorflow as tf
-import numpy as np
 
 from tensorflow.contrib.rnn import MultiRNNCell
-from tensorflow.contrib.rnn import RNNCell
-from params import Params
-from zoneout import ZoneoutWrapper
+from config import Params
+from utils.attention import attention
+
 '''
 attention weights from https://www.microsoft.com/en-us/research/wp-content/uploads/2017/05/r-net.pdf
 W_u^Q.shape:    (2 * attn_size, attn_size)
@@ -46,7 +45,38 @@ def encoding(word, char, word_embeddings, char_embeddings, scope = "embedding"):
         char_encoding = tf.nn.embedding_lookup(char_embeddings, char)
         return word_encoding, char_encoding
 
+# Wrapper for the TF RNN cell
+# For an LSTM, the 'cell' is a tuple containing state and cell
+# We use TF's dropout to implement zoneout
+class ZoneoutWrapper(tf.nn.rnn_cell.RNNCell):
+    """Operator adding zoneout to all states (states+cells) of the given cell."""
+    def __init__(self, cell, state_zoneout_prob, is_training=True, seed=None):
+        if not isinstance(cell, tf.nn.rnn_cell.RNNCell):
+            raise TypeError("The parameter cell is not an RNNCell.")
+        if (isinstance(state_zoneout_prob, float) and not (state_zoneout_prob >= 0.0 and state_zoneout_prob <= 1.0)):
+            raise ValueError("Parameter zoneout_prob must be between 0 and 1: %d"
+                       % state_zoneout_prob)
+        self._cell = cell
+        self._zoneout_prob = state_zoneout_prob
+        self._seed = seed
+        self.is_training = is_training
 
+    @property
+    def state_size(self):
+        return self._cell.state_size
+
+    @property
+    def output_size(self):
+        return self._cell.output_size
+
+    def __call__(self, inputs, state, scope=None):
+        output, new_state = self._cell(inputs, state, scope)
+        if self.is_training:
+            new_state = (1 - self._zoneout_prob) * tf.nn.dropout(
+                      new_state - state, (1 - self._zoneout_prob), seed=self._seed) + state
+        else:
+            new_state = self._zoneout_prob * state + (1 - self._zoneout_prob) * new_state
+        return output, new_state
 
 def apply_dropout(inputs, size = None, is_training = True):
     '''
@@ -244,57 +274,6 @@ def question_pooling(memory, units, weights, memory_len = None, scope = "questio
         return tf.reduce_sum(attn * memory, 1)
 
 
-def gated_attention(memory, inputs, states, units, batch_size, params, self_matching = False, memory_len = None, scope="gated_attention"):
-    with tf.variable_scope(scope):
-        weights, W_g = params
-        inputs_ = [memory, inputs]
-        states = tf.reshape(states,(batch_size,Params.attn_size))
-        if not self_matching:
-            inputs_.append(states)
-        shapes = memory.get_shape().as_list()
-        scores = attention(inputs_, units, weights, memory_len = memory_len, _shape=shapes)
-        scores = tf.expand_dims(scores,-1)
-        attention_pool = tf.reduce_sum(scores * memory, 1)
-        inputs = tf.concat((inputs,attention_pool),axis = 1)
-        g_t = tf.sigmoid(tf.matmul(inputs,W_g))
-        return g_t * inputs
-
-def mask_attn_score(score, memory_sequence_length, score_mask_value = -1e8):
-    score_mask = tf.sequence_mask(
-        memory_sequence_length, maxlen=score.shape[1])
-    score_mask_values = score_mask_value * tf.ones_like(score)
-    return tf.where(score_mask, score, score_mask_values)
-
-def attention(inputs, units, weights, scope = "attention", memory_len = None, reuse = None,
-                  _shape = None, _idk=False):
-    with tf.variable_scope(scope, reuse = reuse):
-        outputs_ = []
-        weights, v = weights
-        for i, (inp,w) in enumerate(zip(inputs, weights)):
-            shapes = inp.shape.as_list()
-            inp = tf.reshape(inp, (-1, shapes[-1]))
-            if w is None:
-                w = tf.get_variable("w_%d"%i, dtype = tf.float32, shape = [shapes[-1],Params.attn_size], initializer = tf.contrib.layers.xavier_initializer())
-            outputs = tf.matmul(inp, w)
-            # Hardcoded attention output reshaping. Equation (4), (8), (9) and (11) in the original paper.
-
-
-
-            if len(shapes) > 2:
-                outputs = tf.reshape(outputs, (shapes[0], shapes[1], -1))
-            elif len(shapes) == 2 and not _idk:
-                outputs = tf.reshape(outputs, (shapes[0], 1, -1))
-            else:
-                outputs = tf.reshape(outputs, (1, shapes[0], -1))
-            outputs_.append(outputs)
-        outputs = sum(outputs_)
-        if Params.bias:
-            b = tf.get_variable("b", shape = outputs.shape[-1], dtype = tf.float32, initializer = tf.contrib.layers.xavier_initializer())
-            outputs += b
-        scores = tf.reduce_sum(tf.tanh(outputs) * v, [-1])
-        if memory_len is not None:
-            scores = mask_attn_score(scores, memory_len)
-        return tf.nn.softmax(scores) # all attention output is softmaxed now
 
 def cross_entropy(output, target):
     cross_entropy = target * tf.log(output + 1e-8)

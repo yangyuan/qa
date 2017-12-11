@@ -353,5 +353,6 @@ class CombinedDataSet:
 
     def load(self, folders):
         for folder in folders:
-            with open(os.path.join(folder, "data.pkl"), 'rb') as handle:
-                self.data.extend(pickle.load(handle))
+            if os.path.exists(folder):
+                with open(os.path.join(folder, "data.pkl"), 'rb') as handle:
+                    self.data.extend(pickle.load(handle))
